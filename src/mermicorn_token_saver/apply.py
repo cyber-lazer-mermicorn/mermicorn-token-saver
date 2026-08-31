@@ -1,1 +1,109 @@
-"""Apply pipeline — diagnose → recommend → act → receipt.\n\nEnd-to-end path so the control plane is not advisory-only.\n"""\n\nfrom __future__ import annotations\n\nfrom dataclasses import dataclass\nfrom pathlib import Path\n\nfrom .doctor import Diagnosis, diagnose_text, rule_symbol_available\nfrom .index.symbols import index_source\nfrom .processors.cli import compact_cli, detect_tool\nfrom .receipts import Receipt, estimate_tokens, make_estimated\nfrom .strategy import Action, Recommendation, recommend\n\n\n@dataclass\nclass ApplyResult:\n    diagnosis: Diagnosis\n    recommendations: list[Recommendation]\n    output: str\n    receipt: Receipt | None\n    action_taken: str\n\n\ndef apply_cli_text(text: str, *, tool: str | None = None, command: str = \"\") -> ApplyResult:\n    d = diagnose_text(text)\n    recs = recommend(d)\n    chosen_tool = tool or detect_tool(command or text)\n    before = estimate_tokens(text)\n    compacted = compact_cli(text, tool=chosen_tool)\n    after = estimate_tokens(compacted)\n    receipt = make_estimated(\n        tokens_before_est=before,\n        tokens_after_est=after,\n        layer=\"command_output\",\n        action=\"cli_compact\",\n        notes=f\"tool={chosen_tool}\",\n        meta={\"tool\": chosen_tool},\n    )\n    return ApplyResult(\n        diagnosis=d,\n        recommendations=recs,\n        output=compacted,\n        receipt=receipt,\n        action_taken=\"cli_compact\",\n    )\n\n\ndef apply_symbol_slice(\n    source: str,\n    *,\n    path: str = \"<string>\",\n    symbol_name: str,\n) -> ApplyResult:\n    idx = index_source(source, path=path)\n    matches = idx.find(symbol_name)\n    d = diagnose_text(source, path_hint=path, line_count=source.count(\"\\n\") + 1)\n    if matches:\n        sym = matches[0]\n        f = rule_symbol_available(path, source, sym.name, sym.line_span)\n        if f:\n            d.add(f)\n    recs = recommend(d)\n    before = estimate_tokens(source)\n    if not matches:\n        receipt = make_estimated(\n            tokens_before_est=before,\n            tokens_after_est=before,\n            layer=\"code_read\",\n            action=\"symbol_slice\",\n            notes=f\"symbol {symbol_name!r} not found; returned full source\",\n        )\n        return ApplyResult(d, recs, source, receipt, \"no_op\")\n    sym = matches[0]\n    sliced = sym.slice_source(source)\n    header = f\"# symbol {sym.qualname} ({sym.kind}) {path}:{sym.lineno}-{sym.end_lineno}\\n\"\n    out = header + sliced\n    after = estimate_tokens(out)\n    receipt = make_estimated(\n        tokens_before_est=before,\n        tokens_after_est=after,\n        layer=\"code_read\",\n        action=\"symbol_slice\",\n        notes=f\"sliced {sym.qualname} from {path}\",\n        meta={\"symbol\": sym.qualname, \"lines\": sym.line_span},\n    )\n    return ApplyResult(d, recs, out, receipt, \"symbol_slice\")\n\n\ndef apply_file(\n    path: str | Path,\n    *,\n    mode: str = \"auto\",\n    symbol: str | None = None,\n    tool: str | None = None,\n) -> ApplyResult:\n    p = Path(path)\n    text = p.read_text(encoding=\"utf-8\", errors=\"replace\")\n    if mode == \"symbol\" or (mode == \"auto\" and symbol):\n        if not symbol:\n            raise ValueError(\"symbol name required for symbol mode\")\n        return apply_symbol_slice(text, path=str(p), symbol_name=symbol)\n    if mode in (\"cli\", \"auto\"):\n        if symbol and p.suffix == \".py\":\n            return apply_symbol_slice(text, path=str(p), symbol_name=symbol)\n        return apply_cli_text(text, tool=tool)\n    return apply_cli_text(text, tool=tool)\n
+"""Apply pipeline — diagnose → recommend → act → receipt.
+
+End-to-end path so the control plane is not advisory-only.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from .doctor import Diagnosis, diagnose_text, rule_symbol_available
+from .index.symbols import index_source
+from .processors.cli import compact_cli, detect_tool
+from .receipts import Receipt, estimate_tokens, make_estimated
+from .strategy import Action, Recommendation, recommend
+
+
+@dataclass
+class ApplyResult:
+    diagnosis: Diagnosis
+    recommendations: list[Recommendation]
+    output: str
+    receipt: Receipt | None
+    action_taken: str
+
+
+def apply_cli_text(text: str, *, tool: str | None = None, command: str = "") -> ApplyResult:
+    d = diagnose_text(text)
+    recs = recommend(d)
+    chosen_tool = tool or detect_tool(command or text)
+    before = estimate_tokens(text)
+    compacted = compact_cli(text, tool=chosen_tool)
+    after = estimate_tokens(compacted)
+    receipt = make_estimated(
+        tokens_before_est=before,
+        tokens_after_est=after,
+        layer="command_output",
+        action="cli_compact",
+        notes=f"tool={chosen_tool}",
+        meta={"tool": chosen_tool},
+    )
+    return ApplyResult(
+        diagnosis=d,
+        recommendations=recs,
+        output=compacted,
+        receipt=receipt,
+        action_taken="cli_compact",
+    )
+
+
+def apply_symbol_slice(
+    source: str,
+    *,
+    path: str = "<string>",
+    symbol_name: str,
+) -> ApplyResult:
+    idx = index_source(source, path=path)
+    matches = idx.find(symbol_name)
+    d = diagnose_text(source, path_hint=path, line_count=source.count("\n") + 1)
+    if matches:
+        sym = matches[0]
+        f = rule_symbol_available(path, source, sym.name, sym.line_span)
+        if f:
+            d.add(f)
+    recs = recommend(d)
+    before = estimate_tokens(source)
+    if not matches:
+        receipt = make_estimated(
+            tokens_before_est=before,
+            tokens_after_est=before,
+            layer="code_read",
+            action="symbol_slice",
+            notes=f"symbol {symbol_name!r} not found; returned full source",
+        )
+        return ApplyResult(d, recs, source, receipt, "no_op")
+    sym = matches[0]
+    sliced = sym.slice_source(source)
+    header = f"# symbol {sym.qualname} ({sym.kind}) {path}:{sym.lineno}-{sym.end_lineno}\n"
+    out = header + sliced
+    after = estimate_tokens(out)
+    receipt = make_estimated(
+        tokens_before_est=before,
+        tokens_after_est=after,
+        layer="code_read",
+        action="symbol_slice",
+        notes=f"sliced {sym.qualname} from {path}",
+        meta={"symbol": sym.qualname, "lines": sym.line_span},
+    )
+    return ApplyResult(d, recs, out, receipt, "symbol_slice")
+
+
+def apply_file(
+    path: str | Path,
+    *,
+    mode: str = "auto",
+    symbol: str | None = None,
+    tool: str | None = None,
+) -> ApplyResult:
+    p = Path(path)
+    text = p.read_text(encoding="utf-8", errors="replace")
+    if mode == "symbol" or (mode == "auto" and symbol):
+        if not symbol:
+            raise ValueError("symbol name required for symbol mode")
+        return apply_symbol_slice(text, path=str(p), symbol_name=symbol)
+    if mode in ("cli", "auto"):
+        if symbol and p.suffix == ".py":
+            return apply_symbol_slice(text, path=str(p), symbol_name=symbol)
+        return apply_cli_text(text, tool=tool)
+    return apply_cli_text(text, tool=tool)
