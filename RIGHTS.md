@@ -6,4 +6,4 @@ Original code, design, architecture, and documentation in this repository are **
 
 Collaboration, licensing, or reuse is by explicit discussion with Cyber Lazer Mermicorn / Cherry only.
 
-Third-party names and marks (Claude, Cursor, pytest, npm, git, etc.) remain the property of their respective owners. This project is unaffiliated.
+Third-party names and marks remain with their respective owners. This project is unaffiliated.

@@ -1,51 +1,44 @@
-# ARCHITECTURE
+# ARCHITECTURE — v0.2
 
 ## Control loop
 
 ```
-Session / tool output
-        │
-        ▼
-   ┌─────────┐
-   │ Doctor  │  deterministic findings
-   └────┬────┘
-        │
-        ▼
- ┌──────────────┐
- │ Strategy     │  layer + action
- │ Router       │
- └──────┬───────┘
-        │
-        ├── structural_nav   → symbol index (planned)
-        ├── cli_compact      → processors/cli.py
-        ├── terse_prose      → policy (skill surface)
-        ├── keep_errors_only → processors
-        └── subagent_isolate → harness guidance
-        │
-        ▼
-   ┌──────────┐
-   │ Receipts │  exact | estimated | observed
-   └──────────┘
+tool output / source file / session events
+            │
+            ▼
+       ┌─────────┐
+       │ Doctor  │
+       └────┬────┘
+            ▼
+     ┌─────────────┐
+     │  Strategy   │
+     └──────┬──────┘
+            │
+   ┌────────┼────────────────────┐
+   ▼        ▼                    ▼
+ symbol   cli_compact      subagent_isolate
+ slice    keep_errors      terse_prose
+   │        │
+   ▼        ▼
+     ┌──────────┐
+     │  Apply   │ → output + Receipt
+     └──────────┘
 ```
 
-## Primary metric
+## Symbol index (code-read lever)
 
-**Cost per successful task** = total spend ÷ number of tasks that meet the success bar.
+Python `ast` only. Builds qualname → line range → signature.  
+`find_symbol` / `mts symbol` returns a header + slice so agents never need the full file when a definition is enough.
 
-Token % reduction is a supporting signal only.
+## Session tracker
 
-## Layers
+Sliding window of tool events. Flags consecutive repeats ≥ threshold and high-frequency tools in-window. Feeds Doctor as `UNBOUNDED_TOOL_LOOP`.
 
-| Layer | Dominant waste | Highest-leverage response |
-|-------|----------------|---------------------------|
-| code_read | Full-file reads | Structural / symbol navigation |
-| command_output | Progress, pass spam | Specialized CLI compactors |
-| prose_output | Preambles, summaries | Terse policy |
-| code_gen | Over-verbose generation | Focused generation policy |
-| session | Loops, repeated context | Budgets + isolation |
+## MCP
 
-## Constraints
+JSON-RPC 2.0 subset over stdio. No SDK dependency. Tools return structured JSON inside MCP content text for maximum client compatibility.
 
-- Doctor and CLI processors: zero LLM calls
-- Never drop error / traceback / diff signal
-- Receipts must label mode (exact vs estimated)
+## Metric
+
+`cost_per_successful_task = total_cost / successes`  
+Token % is supporting evidence only; receipts label exact vs estimated.

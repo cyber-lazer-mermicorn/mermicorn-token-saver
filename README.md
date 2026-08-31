@@ -1,55 +1,63 @@
 # mermicorn-token-saver
 
-**Highest-leverage AI-agent token control plane.**
+**Highest-leverage AI-agent token control plane** (v0.2).
 
-Primary metric: **cost per successful task** — not raw token percentage.
+Primary metric: **cost per successful task**.
 
-Doctor diagnoses waste → Strategy Router selects the best layer action → Receipts account honestly → CLI processors cut command noise without losing errors or diffs.
+```
+Doctor → Strategy Router → Apply (CLI compact | symbol slice) → Receipt
+                ↘ Session loop detector
+                ↘ MCP stdio tools
+```
 
-Part of the [Mermicorn Grove](https://github.com/cyber-lazer-mermicorn) constellation.
-
-## Why this exists
-
-Agent token spend is dominated by:
-
-1. **Code-read input** — full-file reads when a symbol slice would suffice (often 60–97% reducible)
-2. **Command-output input** — progress bars, pass spam, download noise (60–99% on specialized tools)
-3. **Prose output** — preambles and restated summaries (40–65%)
-4. **Session shape** — unbounded tool loops and repeated large context
-
-Most “token savers” attack one layer. This control plane diagnoses across layers and routes to the highest-leverage action, while measuring the metric that actually matters: cost per successful task.
-
-## Quick start
+## Install
 
 ```bash
-# From repo root
-python -m pip install -e ".[dev]"
-mts diagnose -f path/to/large_cli_log.txt
-mts compact -f path/to/pytest_output.txt --tool pytest --receipt
+pip install -e ".[dev]"
+mts version   # 0.2.0
 pytest -q
 ```
 
-## Architecture
+## Commands
+
+```bash
+mts diagnose -f big_log.txt
+mts compact -f pytest.out --tool pytest --receipt
+mts index -f src/app.py
+mts index --tree src --json
+mts symbol -f src/app.py -n MyClass --receipt
+mts apply src/app.py --mode symbol --symbol MyClass --receipt
+mts session-demo --tool Bash --repeats 6
+mts mcp          # stdio MCP server
+```
+
+## MCP tools
+
+`diagnose_text` · `compact_cli` · `index_symbols` · `find_symbol` · `session_record_tool` · `session_check`
+
+Wire as:
+
+```json
+{
+  "mcpServers": {
+    "mermicorn-token-saver": {
+      "command": "python",
+      "args": ["-m", "mermicorn_token_saver.mcp.server"]
+    }
+  }
+}
+```
+
+## Design
 
 | Component | Role |
 |-----------|------|
-| **Doctor** | Deterministic waste rules (no LLM). Full-file, verbose CLI, chatty prose, oversized logs. |
-| **Strategy Router** | Maps findings → layer + action (structural nav, CLI compact, terse prose, sub-agent isolate). |
-| **Receipt Engine** | Exact / estimated / observed-only accounting + cost-per-successful-task helper. |
-| **CLI Processors** | Content-aware compactors for git, pytest, npm, generic logs. Keep errors and diffs. |
-
-## Design principles
-
-- **First pass is last pass** — code ships runnable.
-- **Deterministic core** — Doctor and CLI processors never call an LLM.
-- **Honest receipts** — distinguish exact vs estimated savings.
-- **Quality preserved** — never strip error/traceback/diff signal.
-- **Proprietary** — all rights reserved; collaboration by discussion.
-
-## Status
-
-See [STATUS.md](STATUS.md). v0.1.0 is the working control-plane foundation: Doctor, Strategy, Receipts, CLI compactors, CLI, tests.
-
-## License / rights
+| Doctor | Deterministic waste rules (no LLM) |
+| Strategy | Layer + action recommendations |
+| Symbol index | AST map → slice instead of full file |
+| Session tracker | Unbounded tool-loop detection |
+| Apply | End-to-end act + receipt |
+| CLI processors | git / pytest / npm / cargo / docker |
+| MCP | Stdio tools, zero hard deps |
 
 Proprietary — All Rights Reserved. See RIGHTS.md.

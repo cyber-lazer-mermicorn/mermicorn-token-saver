@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mermicorn-token-saver"
-version = "0.1.0"
-description = "Highest-leverage AI-agent token control plane — Doctor, Strategy Router, Receipts, CLI compactors. Cost-per-successful-task first."
+version = "0.2.0"
+description = "Highest-leverage AI-agent token control plane — Doctor, Strategy, Symbol Index, Session loops, MCP, Receipts. Cost-per-successful-task first."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Proprietary — All Rights Reserved" }

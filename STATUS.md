@@ -1,27 +1,39 @@
 # STATUS — mermicorn-token-saver
 
 **As of:** 2026-08-31  
-**Version:** 0.1.0  
-**State:** Foundation live — Doctor, Strategy Router, Receipts, CLI processors, CLI, tests green.
+**Version:** 0.2.0  
+**State:** Upgraded control plane — symbol index, session loop detector, apply pipeline, MCP stdio, expanded CLI processors. Tests green.
+
+## Audit (v0.1 → gaps)
+
+| Gap | Severity | Status in 0.2 |
+|-----|----------|---------------|
+| No structural symbol index (dominant code-read lever) | Critical | **Shipped** — AST index + `mts symbol` / `find_symbol` |
+| MCP stub only | High | **Shipped** — stdio JSON-RPC tools, zero extra deps |
+| No session / unbounded-loop detector | High | **Shipped** — `SessionTracker` + `session-demo` |
+| Advisory-only (no apply path) | High | **Shipped** — `apply.py` + `mts apply` |
+| Thin CLI processor set | Medium | **Shipped** — cargo + docker added |
+| Docs-only upgrade risk | — | Avoided — code first |
 
 ## What works
 
-- Deterministic Doctor rules (verbose CLI, chatty prose, oversized log, full-file heuristic)
-- Strategy Router → layer + action recommendations
-- Receipt engine (exact / estimated) + cost-per-successful-task helper
-- CLI compactors: git, pytest, npm, generic (preserve errors/diffs)
-- `mts diagnose` / `mts compact` / `mts version`
-- pytest suite on core paths
+- Doctor (+ SYMBOL_AVAILABLE, session loops)
+- Strategy Router (+ SYMBOL_SLICE)
+- Receipts + cost-per-successful-task
+- CLI compactors: git, pytest, npm, cargo, docker, generic
+- Python AST symbol index + tree walk
+- Apply pipeline (cli / symbol / auto)
+- MCP stdio server: diagnose_text, compact_cli, index_symbols, find_symbol, session_*
+- CLI: diagnose, compact, index, symbol, apply, session-demo, mcp, version
 
-## Next (code-up priority)
+## Next (code-up)
 
-1. Structural symbol index / navigation surface (dominant measured lever on code-read layer)
-2. MCP server entry for Claude Code / Cursor
-3. Session event stream + unbounded-loop detector
-4. Integration receipts against real agent sessions
-5. Wire into constellation-map + command-board panel
+1. Multi-language symbol index (TS/Go via tree-sitter optional extra)
+2. Persistent session store across process restarts
+3. Constellation-map node + command-board panel wiring
+4. Measured integration receipts on real agent sessions
 
-## Non-goals for v0.1
+## Non-goals
 
-- Claiming fixed % savings without measured receipts
-- Replacing specialized tools (RTK, Headroom, Token Savior, etc.) — this is the control plane that routes among them
+- Claiming fixed % savings without receipts
+- Replacing specialized tools — this routes and proves
