@@ -55,6 +55,7 @@ def make_estimated(
     task_id: str = "",
     notes: str = "",
     success: bool | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> Receipt:
     saved = max(0, tokens_before_est - tokens_after_est)
     pct = (saved / tokens_before_est * 100.0) if tokens_before_est > 0 else 0.0
@@ -69,6 +70,7 @@ def make_estimated(
         task_id=task_id,
         success=success,
         notes=notes or "Heuristic estimate (chars/4 or rule-based)",
+        meta=meta or {},
     )
 
 
@@ -81,6 +83,7 @@ def make_exact(
     task_id: str = "",
     notes: str = "",
     success: bool | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> Receipt:
     saved = max(0, tokens_before - tokens_after)
     pct = (saved / tokens_before * 100.0) if tokens_before > 0 else 0.0
@@ -95,6 +98,7 @@ def make_exact(
         task_id=task_id,
         success=success,
         notes=notes or "Measured token counts",
+        meta=meta or {},
     )
 
 
@@ -106,3 +110,8 @@ def cost_per_successful_task(
     if successes <= 0:
         return None
     return total_cost / successes
+
+
+def estimate_tokens(text: str) -> int:
+    """Fast local estimate. Prefer provider counts when available."""
+    return max(0, len(text) // 4)
