@@ -22,6 +22,7 @@ class Action(str, Enum):
     TERSE_PROSE = "terse_prose"
     KEEP_ERRORS_ONLY = "keep_errors_only"
     SUBAGENT_ISOLATE = "subagent_isolate"
+    SYMBOL_SLICE = "symbol_slice"
     NO_OP = "no_op"
 
 
@@ -35,6 +36,12 @@ class Recommendation:
 
 
 _KIND_TO_ACTION: dict[WasteKind, tuple[Layer, Action, int, str]] = {
+    WasteKind.SYMBOL_AVAILABLE: (
+        Layer.CODE_READ,
+        Action.SYMBOL_SLICE,
+        98,
+        "Named symbol exists; slice beats full-file by a large margin on measured suites",
+    ),
     WasteKind.FULL_FILE_READ: (
         Layer.CODE_READ,
         Action.STRUCTURAL_NAV,
