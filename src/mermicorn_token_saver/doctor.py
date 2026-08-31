@@ -1,14 +1,12 @@
-"""Doctor — deterministic waste diagnosis for AI-agent sessions.
-
-Rules are pure functions over text/events. No LLM calls.
-Findings drive Strategy Router; they do not mutate context themselves.
-"""
+"""Doctor — deterministic waste diagnosis for AI-agent sessions."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Sequence
+
+from .session import LoopFinding, SessionTracker
 
 
 class WasteKind(str, Enum):
@@ -19,12 +17,13 @@ class WasteKind(str, Enum):
     OVERSIZED_LOG = "oversized_log"
     CACHE_DRIFT = "cache_drift"
     UNBOUNDED_TOOL_LOOP = "unbounded_tool_loop"
+    SYMBOL_AVAILABLE = "symbol_available"
 
 
 @dataclass(frozen=True)
 class Finding:
     kind: WasteKind
-    severity: int  # 1–5
+    severity: int
     evidence: str
     estimated_tokens: int
     remediation_hint: str
@@ -49,6 +48,8 @@ _CLI_NOISE_MARKERS = (
     "passed in",
     "Collecting ",
     "Building wheel",
+    "Compiling ",
+    "Finished `",
 )
 
 _CHATTY_MARKERS = (
@@ -57,6 +58,8 @@ _CHATTY_MARKERS = (
     "Here's a summary of what I did",
     "Sure, I can assist",
     "I'll walk you through",
+    "Of course!",
+    "Great question",
 )
 
 
@@ -72,7 +75,7 @@ def rule_verbose_cli(text: str, threshold: int = 800) -> Finding | None:
         severity=min(5, 2 + hits),
         evidence=f"CLI output length={len(text)} chars, noise_markers={hits}",
         estimated_tokens=est,
-        remediation_hint="Route through CLI processor (git/pytest/npm compactors)",
+        remediation_hint="Route through CLI processor (git/pytest/npm/cargo compactors)",
     )
 
 
@@ -93,7 +96,7 @@ def rule_chatty_prose(text: str) -> Finding | None:
 def rule_oversized_log(text: str, threshold: int = 6000) -> Finding | None:
     if len(text) < threshold:
         return None
-    has_error = any(x in text for x in ("Traceback", "ERROR", "FAILED", "Exception"))
+    has_error = any(x in text for x in ("Traceback", "ERROR", "FAILED", "Exception", "error:"))
     severity = 3 if has_error else 4
     est = len(text) // 4
     return Finding(
@@ -118,6 +121,37 @@ def rule_full_file_heuristic(path_hint: str, content: str, line_count: int) -> F
     )
 
 
+def rule_symbol_available(
+    path_hint: str,
+    content: str,
+    symbol_name: str,
+    symbol_lines: int,
+) -> Finding | None:
+    full_lines = content.count("\n") + 1
+    if symbol_lines <= 0 or full_lines < 120:
+        return None
+    if symbol_lines >= full_lines * 0.5:
+        return None
+    waste = max(0, (len(content) // 4) - max(40, symbol_lines * 8))
+    return Finding(
+        kind=WasteKind.SYMBOL_AVAILABLE,
+        severity=5 if full_lines > 400 else 4,
+        evidence=f"path={path_hint!r} full_lines={full_lines} symbol={symbol_name!r} symbol_lines={symbol_lines}",
+        estimated_tokens=waste,
+        remediation_hint=f"Use symbol slice for {symbol_name!r} instead of full file",
+    )
+
+
+def rule_from_loop(loop: LoopFinding) -> Finding:
+    return Finding(
+        kind=WasteKind.UNBOUNDED_TOOL_LOOP,
+        severity=5 if loop.consecutive >= 6 else 4,
+        evidence=loop.message,
+        estimated_tokens=loop.estimated_wasted_tokens,
+        remediation_hint="Hard budget + sub-agent isolation; stop repeating the same tool",
+    )
+
+
 def diagnose_text(text: str, *, path_hint: str = "", line_count: int = 0) -> Diagnosis:
     d = Diagnosis()
     for rule in (
@@ -132,6 +166,13 @@ def diagnose_text(text: str, *, path_hint: str = "", line_count: int = 0) -> Dia
         f = rule_full_file_heuristic(path_hint, text, line_count)
         if f:
             d.add(f)
+    return d
+
+
+def diagnose_session(tracker: SessionTracker) -> Diagnosis:
+    d = Diagnosis()
+    for loop in tracker.detect_loops():
+        d.add(rule_from_loop(loop))
     return d
 
 

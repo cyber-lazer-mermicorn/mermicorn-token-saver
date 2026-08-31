@@ -87,6 +87,41 @@ def compact_npm(text: str) -> str:
     return out if out.strip() else text[:1500]
 
 
+def compact_cargo(text: str) -> str:
+    if len(text) < 1200:
+        return text
+
+    def pred(ln: str) -> bool:
+        s = ln.strip()
+        low = s.lower()
+        if any(k in low for k in ("error", "warning", "failed", "panic", "help:")):
+            return True
+        if s.startswith(("Compiling ", "Finished ", "Running ", "test ")):
+            return "Finished" in s or s.startswith("test result:")
+        if "test result:" in low:
+            return True
+        return False
+
+    out = _keep_lines(text, pred)
+    return out if out.strip() else text[:2000]
+
+
+def compact_docker(text: str) -> str:
+    if len(text) < 1000:
+        return text
+
+    def pred(ln: str) -> bool:
+        low = ln.lower()
+        if any(k in low for k in ("error", "failed", "denied", "not found", "conflict")):
+            return True
+        if ln.strip().startswith(("Successfully", "STATUS", "CONTAINER", "IMAGE")):
+            return True
+        return False
+
+    out = _keep_lines(text, pred)
+    return out if out.strip() else text[:1500]
+
+
 def compact_generic_log(text: str) -> str:
     if len(text) < 2000:
         return text
@@ -112,6 +147,8 @@ PROCESSORS: dict[str, Callable[[str], str]] = {
     "git": compact_git,
     "pytest": compact_pytest,
     "npm": compact_npm,
+    "cargo": compact_cargo,
+    "docker": compact_docker,
     "generic": compact_generic_log,
 }
 
@@ -124,6 +161,10 @@ def detect_tool(command_or_text: str) -> str:
         return "git"
     if "npm " in c or "yarn " in c or "pnpm " in c:
         return "npm"
+    if "cargo " in c or "compiling " in c:
+        return "cargo"
+    if "docker " in c:
+        return "docker"
     return "generic"
 
 
