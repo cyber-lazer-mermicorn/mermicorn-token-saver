@@ -1,0 +1,18 @@
+name: mermicorn-token-saver
+role: control_plane
+domain: token_efficiency
+metric_primary: cost_per_successful_task
+status: foundation
+version: "0.1.0"
+public: true
+layers:
+  - code_read
+  - command_output
+  - prose_output
+  - session
+surfaces:
+  - cli
+  - library
+  - mcp_planned
+dependencies: []
+constellation: mermicorn-grove

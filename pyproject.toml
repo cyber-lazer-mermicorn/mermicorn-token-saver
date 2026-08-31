@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mermicorn-token-saver"
+version = "0.1.0"
+description = "Highest-leverage AI-agent token control plane — Doctor, Strategy Router, Receipts, CLI compactors. Cost-per-successful-task first."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary — All Rights Reserved" }
+authors = [{ name = "Cyber Lazer Mermicorn / Cherry" }]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+mts = "mermicorn_token_saver.cli:main"
+mermicorn-token-saver = "mermicorn_token_saver.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
